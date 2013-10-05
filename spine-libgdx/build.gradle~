@@ -25,6 +25,9 @@ sourceSets {
 jar { 
     from sourceSets.main.java 
     manifest { 
-        attributes 'Implementation-Title': 'Spine Libgdx Runtime', 'Implementation-Version': version, 'Build-Time': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")  
+        attributes 
+	'Implementation-Title': 'Spine Libgdx Runtime', 
+	'Implementation-Version': version,
+	'Build-Time': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")  
     } 
 }
