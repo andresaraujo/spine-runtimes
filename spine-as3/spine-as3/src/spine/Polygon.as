@@ -31,37 +31,51 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-package spine.animation {
-import spine.Bone;
-import spine.Event;
-import spine.Skeleton;
+package spine {
 
-public class ScaleTimeline extends TranslateTimeline {
-	public function ScaleTimeline (frameCount:int) {
-		super(frameCount);
+public class Polygon {
+	public var vertices:Vector.<Number> = new Vector.<Number>();
+	
+	/** Returns true if the polygon contains the point. */
+	public function containsPoint (x:Number, y:Number) : Boolean {
+		var nn:int = vertices.length;
+		
+		var prevIndex:int = nn - 2;
+		var inside:Boolean = false;
+		for (var ii:int = 0; ii < nn; ii += 2) {
+			var vertexY:Number = vertices[ii + 1];
+			var prevY:Number = vertices[prevIndex + 1];
+			if ((vertexY < y && prevY >= y) || (prevY < y && vertexY >= y)) {
+				var vertexX:Number = vertices[ii];
+				if (vertexX + (y - vertexY) / (prevY - vertexY) * (vertices[prevIndex] - vertexX) < x) inside = !inside;
+			}
+			prevIndex = ii;
+		}
+		
+		return inside;
 	}
 
-	override public function apply (skeleton:Skeleton, lastTime:Number, time:Number, firedEvents:Vector.<Event>, alpha:Number) : void {
-		if (time < frames[0])
-			return; // Time is before first frame.
-
-		var bone:Bone = skeleton.bones[boneIndex];
-		if (time >= frames[frames.length - 3]) { // Time is after last frame.
-			bone.scaleX += (bone.data.scaleX - 1 + frames[frames.length - 2] - bone.scaleX) * alpha;
-			bone.scaleY += (bone.data.scaleY - 1 + frames[frames.length - 1] - bone.scaleY) * alpha;
-			return;
+	/** Returns true if the polygon contains the line segment. */
+	public function intersectsSegment (x1:Number, y1:Number, x2:Number, y2:Number) : Boolean {
+		var nn:int = vertices.length;
+		
+		var width12:Number = x1 - x2, height12:Number = y1 - y2;
+		var det1:Number = x1 * y2 - y1 * x2;
+		var x3:Number = vertices[nn - 2], y3:Number = vertices[nn - 1];
+		for (var ii:int = 0; ii < nn; ii += 2) {
+			var x4:Number = vertices[ii], y4:Number = vertices[ii + 1];
+			var det2:Number = x3 * y4 - y3 * x4;
+			var width34:Number = x3 - x4, height34:Number = y3 - y4;
+			var det3:Number = width12 * height34 - height12 * width34;
+			var x:Number = (det1 * width34 - width12 * det2) / det3;
+			if (((x >= x3 && x <= x4) || (x >= x4 && x <= x3)) && ((x >= x1 && x <= x2) || (x >= x2 && x <= x1))) {
+				var y:Number = (det1 * height34 - height12 * det2) / det3;
+				if (((y >= y3 && y <= y4) || (y >= y4 && y <= y3)) && ((y >= y1 && y <= y2) || (y >= y2 && y <= y1))) return true;
+			}
+			x3 = x4;
+			y3 = y4;
 		}
-
-		// Interpolate between the last frame and the current frame.
-		var frameIndex:int = Animation.binarySearch(frames, time, 3);
-		var lastFrameX:Number = frames[frameIndex - 2];
-		var lastFrameY:Number = frames[frameIndex - 1];
-		var frameTime:Number = frames[frameIndex];
-		var percent:Number = 1 - (time - frameTime) / (frames[frameIndex + LAST_FRAME_TIME] - frameTime);
-		percent = getCurvePercent(frameIndex / 3 - 1, percent < 0 ? 0 : (percent > 1 ? 1 : percent));
-
-		bone.scaleX += (bone.data.scaleX - 1 + lastFrameX + (frames[frameIndex + FRAME_X] - lastFrameX) * percent - bone.scaleX) * alpha;
-		bone.scaleY += (bone.data.scaleY - 1 + lastFrameY + (frames[frameIndex + FRAME_Y] - lastFrameY) * percent - bone.scaleY) * alpha;
+		return false;
 	}
 }
 
