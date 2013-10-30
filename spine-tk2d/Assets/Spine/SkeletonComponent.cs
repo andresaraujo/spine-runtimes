@@ -58,6 +58,16 @@ public class SkeletonComponent : MonoBehaviour {
 	private List<Material> submeshMaterials = new List<Material>();
 	private List<Submesh> submeshes = new List<Submesh>();
 
+	/// <summary>False if Initialize needs to be called.</summary>
+	public bool Initialized {
+		get {
+			if (skeletonDataAsset == null) return true;
+			SkeletonData skeletonData = skeletonDataAsset.GetSkeletonData(false);
+			if (skeletonData == null) return true;
+			return skeleton != null && skeleton.Data == skeletonData;
+		}
+	}
+
 	public virtual void Clear () {
 		meshFilter.sharedMesh = null;
 		DestroyImmediate(mesh);
@@ -69,6 +79,8 @@ public class SkeletonComponent : MonoBehaviour {
 	}
 
 	public virtual void Initialize () {
+		if (Initialized) return;
+
 		meshFilter = GetComponent<MeshFilter>();
 		mesh1 = newMesh();
 		mesh2 = newMesh();
@@ -91,8 +103,8 @@ public class SkeletonComponent : MonoBehaviour {
 		return mesh;
 	}
 	
-	public virtual void UpdateSkeleton () {
-		skeleton.Update(Time.deltaTime * timeScale);
+	public virtual void UpdateSkeleton (float deltaTime) {
+		skeleton.Update(deltaTime * timeScale);
 		skeleton.UpdateWorldTransform();
 	}
 	
@@ -113,7 +125,7 @@ public class SkeletonComponent : MonoBehaviour {
 		if (skeleton == null || skeleton.Data != skeletonData)
 			Initialize();
 
-		UpdateSkeleton();
+		UpdateSkeleton(Time.deltaTime);
 
 		// Count quads and submeshes.
 		int quadCount = 0, submeshQuadCount = 0;
