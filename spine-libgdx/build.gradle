@@ -2,7 +2,7 @@ apply plugin: "java"
 
 sourceCompatibility = 1.6
 version = "1.0"
-ext.gdxVersion = "0.9.9-SNAPSHOT"
+ext.gdxVersion = "0.9.9"
     
 repositories {
         mavenCentral()
