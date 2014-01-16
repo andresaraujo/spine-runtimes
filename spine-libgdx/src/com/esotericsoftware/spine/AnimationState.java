@@ -1,41 +1,36 @@
 /******************************************************************************
- * Spine Runtime Software License - Version 1.1
+ * Spine Runtimes Software License
+ * Version 2
  * 
  * Copyright (c) 2013, Esoteric Software
  * All rights reserved.
  * 
- * Redistribution and use in source and binary forms in whole or in part, with
- * or without modification, are permitted provided that the following conditions
- * are met:
- * 
- * 1. A Spine Essential, Professional, Enterprise, or Education License must
- *    be purchased from Esoteric Software and the license must remain valid:
- *    http://esotericsoftware.com/
- * 2. Redistributions of source code must retain this license, which is the
- *    above copyright notice, this declaration of conditions and the following
- *    disclaimer.
- * 3. Redistributions in binary form must reproduce this license, which is the
- *    above copyright notice, this declaration of conditions and the following
- *    disclaimer, in the documentation and/or other materials provided with the
- *    distribution.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * You are granted a perpetual, non-exclusive, non-sublicensable and
+ * non-transferable license to install, execute and perform the Spine Runtimes
+ * Software (the "Software") solely for internal use. Without the written
+ * permission of Esoteric Software, you may not (a) modify, translate, adapt or
+ * otherwise create derivative works, improvements of the Software or develop
+ * new applications using the Software or (b) remove, delete, alter or obscure
+ * any trademarks or any copyright, trademark, patent or other intellectual
+ * property or proprietary rights notices on or in the Software, including
+ * any copy thereof. Redistributions in binary or source form must include
+ * this license and terms. THIS SOFTWARE IS PROVIDED BY ESOTERIC SOFTWARE
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL ESOTERIC SOFTARE BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
  * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 package com.esotericsoftware.spine;
 
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Pool;
 import com.badlogic.gdx.utils.Pool.Poolable;
-import com.badlogic.gdx.utils.Pools;
 
 /** Stores state for an animation and automatically mixes between animations. */
 public class AnimationState {
@@ -44,6 +39,12 @@ public class AnimationState {
 	private final Array<Event> events = new Array();
 	private final Array<AnimationStateListener> listeners = new Array();
 	private float timeScale = 1;
+
+	private Pool<TrackEntry> trackEntryPool = new Pool() {
+		protected Object newObject () {
+			return new TrackEntry();
+		}
+	};
 
 	public AnimationState (AnimationStateData data) {
 		if (data == null) throw new IllegalArgumentException("data cannot be null.");
@@ -100,7 +101,7 @@ public class AnimationState {
 				float alpha = current.mixTime / current.mixDuration;
 				if (alpha >= 1) {
 					alpha = 1;
-					Pools.free(previous);
+					trackEntryPool.free(previous);
 					current.previous = null;
 				}
 				current.animation.mix(skeleton, lastTime, time, loop, events, alpha);
@@ -142,13 +143,13 @@ public class AnimationState {
 
 		tracks.set(trackIndex, null);
 		freeAll(current);
-		if (current.previous != null) Pools.free(current.previous);
+		if (current.previous != null) trackEntryPool.free(current.previous);
 	}
 
 	private void freeAll (TrackEntry entry) {
 		while (entry != null) {
 			TrackEntry next = entry.next;
-			Pools.free(entry);
+			trackEntryPool.free(entry);
 			entry = next;
 		}
 	}
@@ -163,10 +164,8 @@ public class AnimationState {
 	private void setCurrent (int index, TrackEntry entry) {
 		TrackEntry current = expandToIndex(index);
 		if (current != null) {
-			if (current.previous != null) {
-				Pools.free(current.previous);
-				current.previous = null;
-			}
+			TrackEntry previous = current.previous;
+			current.previous = null;
 
 			if (current.listener != null) current.listener.end(index);
 			for (int i = 0, n = listeners.size; i < n; i++)
@@ -175,9 +174,16 @@ public class AnimationState {
 			entry.mixDuration = data.getMix(current.animation, entry.animation);
 			if (entry.mixDuration > 0) {
 				entry.mixTime = 0;
-				entry.previous = current;
+				// If a mix is in progress, mix from the closest animation.
+				if (previous != null && current.mixTime / current.mixDuration < 0.5f) {
+					entry.previous = previous;
+					previous = current;
+				} else
+					entry.previous = current;
 			} else
-				Pools.free(current);
+				trackEntryPool.free(current);
+
+			if (previous != null) trackEntryPool.free(previous);
 		}
 
 		tracks.set(index, entry);
@@ -199,7 +205,7 @@ public class AnimationState {
 		TrackEntry current = expandToIndex(trackIndex);
 		if (current != null) freeAll(current.next);
 
-		TrackEntry entry = Pools.obtain(TrackEntry.class);
+		TrackEntry entry = trackEntryPool.obtain();
 		entry.animation = animation;
 		entry.loop = loop;
 		entry.endTime = animation.getDuration();
@@ -217,7 +223,7 @@ public class AnimationState {
 	/** Adds an animation to be played delay seconds after the current or last queued animation.
 	 * @param delay May be <= 0 to use duration of previous animation minus any mix duration plus the negative delay. */
 	public TrackEntry addAnimation (int trackIndex, Animation animation, boolean loop, float delay) {
-		TrackEntry entry = Pools.obtain(TrackEntry.class);
+		TrackEntry entry = trackEntryPool.obtain();
 		entry.animation = animation;
 		entry.loop = loop;
 		entry.endTime = animation.getDuration();

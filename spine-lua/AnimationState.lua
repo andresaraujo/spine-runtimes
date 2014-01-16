@@ -1,35 +1,30 @@
-------------------------------------------------------------------------------
- -- Spine Runtime Software License - Version 1.0
- -- 
- -- Copyright (c) 2013, Esoteric Software
- -- All rights reserved.
- -- 
- -- Redistribution and use in source and binary forms in whole or in part, with
- -- or without modification, are permitted provided that the following conditions
- -- are met:
- -- 
- -- 1. A Spine Essential, Professional, Enterprise, or Education License must
- --    be purchased from Esoteric Software and the license must remain valid:
- --    http://esotericsoftware.com/
- -- 2. Redistributions of source code must retain this license, which is the
- --    above copyright notice, this declaration of conditions and the following
- --    disclaimer.
- -- 3. Redistributions in binary form must reproduce this license, which is the
- --    above copyright notice, this declaration of conditions and the following
- --    disclaimer, in the documentation and/or other materials provided with the
- --    distribution.
- -- 
- -- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- -- ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- -- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- -- DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- -- ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- -- (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- -- LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- -- ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- -- (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- -- SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- ------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+-- Spine Runtimes Software License
+-- Version 2
+-- 
+-- Copyright (c) 2013, Esoteric Software
+-- All rights reserved.
+-- 
+-- You are granted a perpetual, non-exclusive, non-sublicensable and
+-- non-transferable license to install, execute and perform the Spine Runtimes
+-- Software (the "Software") solely for internal use. Without the written
+-- permission of Esoteric Software, you may not (a) modify, translate, adapt or
+-- otherwise create derivative works, improvements of the Software or develop
+-- new applications using the Software or (b) remove, delete, alter or obscure
+-- any trademarks or any copyright, trademark, patent or other intellectual
+-- property or proprietary rights notices on or in the Software, including
+-- any copy thereof. Redistributions in binary or source form must include
+-- this license and terms. THIS SOFTWARE IS PROVIDED BY ESOTERIC SOFTWARE
+-- "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+-- TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+-- PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL ESOTERIC SOFTARE BE LIABLE FOR ANY
+-- DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+-- (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+-- LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+-- ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+-- (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+-- THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-------------------------------------------------------------------------------
 
 local AnimationState = {}
 
@@ -39,6 +34,7 @@ function AnimationState.new (data)
 	local self = {
 		data = data,
 		tracks = {},
+		trackCount = 0,
 		events = {},
 		onStart = nil, onEnd = nil, onComplete = nil, onEvent = nil,
 		timeScale = 1
@@ -47,6 +43,7 @@ function AnimationState.new (data)
 	local function setCurrent (index, entry)
 		local current = self.tracks[index]
 		if current then
+			local previous = current.previous
 			current.previous = nil
 
 			if current.onEnd then current.onEnd(index) end
@@ -55,11 +52,17 @@ function AnimationState.new (data)
 			entry.mixDuration = self.data:getMix(current.animation.name, entry.animation.name)
 			if entry.mixDuration > 0 then
 				entry.mixTime = 0
-				entry.previous = current
+				-- If a mix is in progress, mix from the closest animation.
+				if previous and current.mixTime / current.mixDuration < 0.5 then
+					entry.previous = previous
+				else
+					entry.previous = current
+				end
 			end
 		end
 
 		self.tracks[index] = entry
+		self.trackCount = math.max(self.trackCount, index)
 
 		if entry.onStart then entry.onStart(index) end
 		if self.onStart then self.onStart(index) end
@@ -67,7 +70,8 @@ function AnimationState.new (data)
 
 	function self:update (delta)
 		delta = delta * self.timeScale
-		for i,current in pairs(self.tracks) do
+		for i = 0, self.trackCount do
+			local current = self.tracks[i]
 			if current then
 				local trackDelta = delta * current.timeScale
 				current.time = current.time + trackDelta
@@ -88,7 +92,8 @@ function AnimationState.new (data)
 	end
 
 	function self:apply(skeleton)
-		for i,current in pairs(self.tracks) do
+		for i = 0, self.trackCount do
+			local current = self.tracks[i]
 			if current then
 				local time = current.time
 				local lastTime = current.lastTime
@@ -145,6 +150,7 @@ function AnimationState.new (data)
 			self.clearTrack(i)
 		end
 		self.tracks = {}
+		self.trackCount = 0
 	end
 
 	function self:clearTrack (trackIndex)
@@ -155,6 +161,9 @@ function AnimationState.new (data)
 		if self.onEnd then self.onEnd(trackIndex) end
 
 		self.tracks[trackIndex] = nil
+		if trackIndex == self.trackCount - 1 then
+			self.trackCount = self.trackCount - 1
+		end
 	end
 
 	function self:setAnimationByName (trackIndex, animationName, loop)

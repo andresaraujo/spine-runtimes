@@ -1,34 +1,29 @@
 /******************************************************************************
- * Spine Runtime Software License - Version 1.1
+ * Spine Runtimes Software License
+ * Version 2
  * 
  * Copyright (c) 2013, Esoteric Software
  * All rights reserved.
  * 
- * Redistribution and use in source and binary forms in whole or in part, with
- * or without modification, are permitted provided that the following conditions
- * are met:
- * 
- * 1. A Spine Essential, Professional, Enterprise, or Education License must
- *    be purchased from Esoteric Software and the license must remain valid:
- *    http://esotericsoftware.com/
- * 2. Redistributions of source code must retain this license, which is the
- *    above copyright notice, this declaration of conditions and the following
- *    disclaimer.
- * 3. Redistributions in binary form must reproduce this license, which is the
- *    above copyright notice, this declaration of conditions and the following
- *    disclaimer, in the documentation and/or other materials provided with the
- *    distribution.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * You are granted a perpetual, non-exclusive, non-sublicensable and
+ * non-transferable license to install, execute and perform the Spine Runtimes
+ * Software (the "Software") solely for internal use. Without the written
+ * permission of Esoteric Software, you may not (a) modify, translate, adapt or
+ * otherwise create derivative works, improvements of the Software or develop
+ * new applications using the Software or (b) remove, delete, alter or obscure
+ * any trademarks or any copyright, trademark, patent or other intellectual
+ * property or proprietary rights notices on or in the Software, including
+ * any copy thereof. Redistributions in binary or source form must include
+ * this license and terms. THIS SOFTWARE IS PROVIDED BY ESOTERIC SOFTWARE
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL ESOTERIC SOFTARE BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
  * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 package spine.animation {
@@ -40,7 +35,10 @@ public class AnimationState {
 	private var _data:AnimationStateData;
 	private var _tracks:Vector.<TrackEntry> = new Vector.<TrackEntry>();
 	private var _events:Vector.<Event> = new Vector.<Event>();
-	public var onStart:Function, onEnd:Function, onComplete:Function, onEvent:Function;
+	public var onStart:Listeners = new Listeners();
+	public var onEnd:Listeners = new Listeners();
+	public var onComplete:Listeners = new Listeners();
+	public var onEvent:Listeners = new Listeners();
 	public var timeScale:Number = 1;
 
 	public function AnimationState (data:AnimationStateData) {
@@ -102,14 +100,14 @@ public class AnimationState {
 			
 			for each (var event:Event in _events) {
 				if (current.onEvent != null) current.onEvent(i, event);
-				if (onEvent != null) onEvent(i, event);
+				onEvent.invoke(i, event);
 			}
 
 			// Check if completed the animation or a loop iteration.
 			if (loop ? (lastTime % endTime > time % endTime) : (lastTime < endTime && time >= endTime)) {
 				var count:int = (int)(time / endTime);
 				if (current.onComplete != null) current.onComplete(i, count);
-				if (onComplete != null) onComplete(i, count);
+				onComplete.invoke(i, count);
 			}
 
 			current.lastTime = current.time;
@@ -128,7 +126,7 @@ public class AnimationState {
 		if (!current) return;
 		
 		if (current.onEnd != null) current.onEnd(trackIndex);
-		if (onEnd != null) onEnd(trackIndex);
+		onEnd.invoke(trackIndex);
 
 		_tracks[trackIndex] = null;
 	}
@@ -136,29 +134,35 @@ public class AnimationState {
 	private function expandToIndex (index:int) : TrackEntry {
 		if (index < _tracks.length) return _tracks[index];
 		while (index >= _tracks.length)
-			_tracks.push(null);
+			_tracks[_tracks.length] = null;
 		return null;
 	}
 	
 	private function setCurrent (index:int, entry:TrackEntry) : void {
 		var current:TrackEntry = expandToIndex(index);
 		if (current) {
+			var previous:TrackEntry = current.previous;
 			current.previous = null;
-			
+
 			if (current.onEnd != null) current.onEnd(index);
-			if (onEnd != null) onEnd(index);
-			
+			onEnd.invoke(index);
+
 			entry.mixDuration = _data.getMix(current.animation, entry.animation);
 			if (entry.mixDuration > 0) {
 				entry.mixTime = 0;
-				entry.previous = current;
+				// If a mix is in progress, mix from the closest animation.
+				if (previous != null && current.mixTime / current.mixDuration < 0.5) {
+					entry.previous = previous;
+					previous = current;
+				} else
+					entry.previous = current;
 			}
 		}
 		
 		_tracks[index] = entry;
-		
+
 		if (entry.onStart != null) entry.onStart(index);
-		if (onStart != null) onStart(index);
+		onStart.invoke(index);
 	}
 	
 	public function setAnimationByName (trackIndex:int, animationName:String, loop:Boolean) : TrackEntry {

@@ -1,34 +1,29 @@
 /******************************************************************************
- * Spine Runtime Software License - Version 1.1
+ * Spine Runtimes Software License
+ * Version 2
  * 
  * Copyright (c) 2013, Esoteric Software
  * All rights reserved.
  * 
- * Redistribution and use in source and binary forms in whole or in part, with
- * or without modification, are permitted provided that the following conditions
- * are met:
- * 
- * 1. A Spine Essential, Professional, Enterprise, or Education License must
- *    be purchased from Esoteric Software and the license must remain valid:
- *    http://esotericsoftware.com/
- * 2. Redistributions of source code must retain this license, which is the
- *    above copyright notice, this declaration of conditions and the following
- *    disclaimer.
- * 3. Redistributions in binary form must reproduce this license, which is the
- *    above copyright notice, this declaration of conditions and the following
- *    disclaimer, in the documentation and/or other materials provided with the
- *    distribution.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * You are granted a perpetual, non-exclusive, non-sublicensable and
+ * non-transferable license to install, execute and perform the Spine Runtimes
+ * Software (the "Software") solely for internal use. Without the written
+ * permission of Esoteric Software, you may not (a) modify, translate, adapt or
+ * otherwise create derivative works, improvements of the Software or develop
+ * new applications using the Software or (b) remove, delete, alter or obscure
+ * any trademarks or any copyright, trademark, patent or other intellectual
+ * property or proprietary rights notices on or in the Software, including
+ * any copy thereof. Redistributions in binary or source form must include
+ * this license and terms. THIS SOFTWARE IS PROVIDED BY ESOTERIC SOFTWARE
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL ESOTERIC SOFTARE BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
  * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 package spine {
@@ -184,8 +179,9 @@ public class SkeletonJson {
 			regionAttachment.updateOffset();
 		} else if (attachment is BoundingBoxAttachment) {
 			var box:BoundingBoxAttachment = attachment as BoundingBoxAttachment;
+			var vertices:Vector.<Number> = box.vertices;
 			for each (var point:Number in map["vertices"])
-				box.vertices.push(point * scale);
+				vertices[vertices.length] = point * scale;
 		}
 
 		return attachment;
@@ -214,7 +210,7 @@ public class SkeletonJson {
 						readCurve(timeline, frameIndex, valueMap);
 						frameIndex++;
 					}
-					timelines.push(timeline);
+					timelines[timelines.length] = timeline;
 					duration = Math.max(duration, timeline.frames[timeline.frameCount * 2 - 2]);
 
 				} else if (timelineName == TIMELINE_TRANSLATE || timelineName == TIMELINE_SCALE) {
@@ -236,7 +232,7 @@ public class SkeletonJson {
 						readCurve(timeline1, frameIndex1, valueMap1);
 						frameIndex1++;
 					}
-					timelines.push(timeline1);
+					timelines[timelines.length] = timeline1;
 					duration = Math.max(duration, timeline1.frames[timeline1.frameCount * 3 - 3]);
 
 				} else
@@ -266,7 +262,7 @@ public class SkeletonJson {
 						readCurve(timeline2, frameIndex2, valueMap2);
 						frameIndex2++;
 					}
-					timelines.push(timeline2);
+					timelines[timelines.length] = timeline2;
 					duration = Math.max(duration, timeline2.frames[timeline2.frameCount * 5 - 5]);
 
 				} else if (timelineName2 == TIMELINE_ATTACHMENT) {
@@ -277,7 +273,7 @@ public class SkeletonJson {
 					for each (var valueMap3:Object in values2) {
 						timeline3.setFrame(frameIndex3++, valueMap3["time"], valueMap3["name"]);
 					}
-					timelines.push(timeline3);
+					timelines[timelines.length] = timeline3;
 					duration = Math.max(duration, timeline3.frames[timeline3.frameCount - 1]);
 
 				} else
@@ -298,7 +294,7 @@ public class SkeletonJson {
 				event.stringValue = eventMap.hasOwnProperty("string") ? eventMap["string"] : eventData.stringValue;
 				timeline4.setFrame(frameIndex4++, eventMap["time"], event);
 			}
-			timelines.push(timeline4);
+			timelines[timelines.length] = timeline4;
 			duration = Math.max(duration, timeline4.frames[timeline4.frameCount - 1]);
 		}
 
@@ -334,7 +330,7 @@ public class SkeletonJson {
 				}
 				timeline5.setFrame(frameIndex5++, drawOrderMap["time"], drawOrder);
 			}
-			timelines.push(timeline5);
+			timelines[timelines.length] = timeline5;
 			duration = Math.max(duration, timeline5.frames[timeline5.frameCount - 1]);
 		}
 
